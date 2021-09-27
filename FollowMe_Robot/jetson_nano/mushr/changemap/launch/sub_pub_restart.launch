@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="changemap" name="pub_changemap" type="pub_changemap.py" />
+    <node pkg="changemap" name="sub_changemap" type="sub_changemap.py" />
+</launch>

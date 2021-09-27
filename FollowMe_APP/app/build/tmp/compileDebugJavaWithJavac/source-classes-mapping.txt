@@ -1,0 +1,8 @@
+com/example/follow_me/MainActivity.java
+ com.example.follow_me.MainActivity
+ com.example.follow_me.MainActivity$1
+ com.example.follow_me.MainActivity$2
+ com.example.follow_me.MainActivity$3
+ com.example.follow_me.MainActivity$MyClientTask
+com/example/follow_me/BuildConfig.java
+ com.example.follow_me.BuildConfig

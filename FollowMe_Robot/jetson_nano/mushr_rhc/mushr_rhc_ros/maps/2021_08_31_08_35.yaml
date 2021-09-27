@@ -1,0 +1,7 @@
+image: 2021_08_31_08_35.pgm
+resolution: 0.050000
+origin: [-5.344378, -11.978337, 0.000000]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+

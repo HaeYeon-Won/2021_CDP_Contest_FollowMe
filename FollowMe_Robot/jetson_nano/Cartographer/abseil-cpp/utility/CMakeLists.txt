@@ -14,18 +14,31 @@
 # limitations under the License.
 #
 
+absl_cc_library(
+  NAME
+    utility
+  HDRS
+    "utility.h"
+  COPTS
+    ${ABSL_DEFAULT_COPTS}
+  DEPS
+    absl::base_internal
+    absl::config
+    absl::type_traits
+  PUBLIC
+)
 
-
-add_subdirectory(base)
-add_subdirectory(algorithm)
-add_subdirectory(container)
-add_subdirectory(debugging)
-add_subdirectory(hash)
-add_subdirectory(memory)
-add_subdirectory(meta)
-add_subdirectory(numeric)
-add_subdirectory(strings)
-add_subdirectory(synchronization)
-add_subdirectory(time)
-add_subdirectory(types)
-add_subdirectory(utility)
+absl_cc_test(
+  NAME
+    utility_test
+  SRCS
+    "utility_test.cc"
+  COPTS
+    ${ABSL_TEST_COPTS}
+  DEPS
+    absl::utility
+    absl::core_headers
+    absl::memory
+    absl::strings
+    gmock_main
+)

@@ -1,9 +1,14 @@
 #!/usr/bin/env python2
+"""
+Project: Avoid_obstacle
+Date: 2021.08.27.
+Author: Won-Haeyeoun, Kim-Harim
+"""
 import time
 import serial
 import math
-from ackermann_msgs.msg import AckermannDriveStamped
-from std_msgs.msg import *
+from ackermann_msgs.msg import AckermannDriveStamped    # vesc 제어를 위한 메시지
+from std_msgs.msg import *  # standard msg
 import rospy
 from threading import Thread, Lock, Event
 import sys
@@ -25,6 +30,9 @@ can_go = Event ()
 cs_lock=Lock()
 
 def send_data(data, option, ser):
+    """
+    RaspberryPi로 data 전달
+    """
     send_data=data+' '+option+'\r\n'
     print("Send_data = ", send_data)
     send_data=send_data.encode('utf-8')
@@ -32,6 +40,9 @@ def send_data(data, option, ser):
     return
 
 def Get_Dist_From_Lidar():
+    """
+    TF-mini lidar로 장애물의 거리 측정
+    """
     while True:
         try:
             count=ser.in_waiting
@@ -50,27 +61,28 @@ def Get_Dist_From_Lidar():
             exit()
 
 def Avoid_obstacle(ser_usb):
+    """
+    장애물 탐지 및 회피 이동 경로 
+    """
     global OBSTACLE_APPEAR, move_angle, move_length, time_go, MODE, INIT_POS, NEW_STATIC, state, msg_drive, pub_stop, can_go, ser_tts
     static_obstacle=False
     count=0
     print ("Avoid_obstacle")
     while True:
         try:
-            if state=='go' and MODE!='running':
-                if INIT_POS==True:
+            if state=='go' and MODE!='running': # 장애물 감지되지 않은 경우
+                if INIT_POS==True:  # 경로 계산 완료 후 이동 중
 
                     Search_Table={} #TF_mini Lidar
                     move_range=[] #Search Tabl
                     temp_buff=[] #
-                    print("wowwowowow")
-                    dist=Get_Dist_From_Lidar()
-                    print("efknlanfela")
+                    dist=Get_Dist_From_Lidar()  # 장애물 감지
                     time.sleep(0.1)
                     print("dist in Avoid_Obstacle = ", dist, "cm")
 
-                    if dist<=SAFETY_DISTANCE and count>=3:
-                        ser_tts.write ("STATICOBSTACLE tts\r\n".encode())
-                        can_go.set ()
+                    if dist<=SAFETY_DISTANCE and count>=3:  # 정적 장애물이 발견된 경우
+                        ser_tts.write ("STATICOBSTACLE tts\r\n".encode())   # 시각 장애인에게 음성으로 장애물 인식
+                        can_go.set ()   # 로봇 이동 중지
                         count=0
                         cs_lock.acquire()
                         NEW_STATIC=1
@@ -78,6 +90,7 @@ def Avoid_obstacle(ser_usb):
                             running_state.set()
                         cs_lock.release()
 
+                        # 이동 가능 범위 탐색
                         for i in range(-70,71,20):
                             print("ang = ", i)
                             send_data(str(i), 'servo', ser_usb)
@@ -89,7 +102,7 @@ def Avoid_obstacle(ser_usb):
                         print ("Search_Table = ", Search_Table)
 
                         for val in Search_Table:
-                            if val[1]>=SAFETY_DISTANCE:
+                            if val[1]>=SAFETY_DISTANCE: # 로봇이 이동 가능한 넓이만 추가
                                 temp_buff.append(val[0])
                             else:
                                 move_range.append(temp_buff)
@@ -100,6 +113,7 @@ def Avoid_obstacle(ser_usb):
                         move_range.sort(key=len) 
                         print ("move_range = ", move_range[-1])
                         try:
+                            # 이동 가능한 구간 중 가장 폭이 넓은 쪽으로 이동
                             table_length = len(move_range[-1])
                             total_angle = sum(move_range[-1])
                             if table_length < 2:
@@ -109,7 +123,6 @@ def Avoid_obstacle(ser_usb):
                             #move_length=30 #move_length for test
                             send_data(str(int(move_angle)), 'servo', ser_usb) 
                             INIT_POS=False 
-                            print ("cccccccccccccc")
                             running_state.set() 
 
                         except ZeroDivisionError:
@@ -119,8 +132,9 @@ def Avoid_obstacle(ser_usb):
                             continue
                     #static_obstacle=False 
 
+                    # 동적 장애물이 발견된 경우
                     elif dist<=SAFETY_DISTANCE: 
-                        ser_tts.write ("DYNAMICOBSTACLE tts\r\n".encode())
+                        ser_tts.write ("DYNAMICOBSTACLE tts\r\n".encode())  # 시각 장애인에게 장애물 고지
                         #static_obstacle=True 
                         count+=1
                         #MODE='waiting'
@@ -132,9 +146,11 @@ def Avoid_obstacle(ser_usb):
                         #pub_stop.publish (msg_drive)
                         can_go.set ()
                         time.sleep(TIME_TO_WATI)
+                    # 동적 장애물이 사라진 경우
                     elif count>=1 and dist>SAFETY_DISTANCE:
                         count=0
                         can_go.clear ()
+                    # 이동 
                     else:
                         can_go.clear ()
                         if MODE == 'running':
@@ -154,6 +170,9 @@ def Avoid_obstacle(ser_usb):
             sys.exit(0)
 
 def robot_stop():
+    """
+    장애물 발견 시 로봇 정지
+    """
     global can_go, pub_stop, msg_drive
     print("stop init")
     #can_go.wait ()
@@ -169,6 +188,9 @@ def robot_stop():
         time.sleep(0.1)
 
 def move_robot(ser_usb):
+    """
+    계산한 경로로 로봇 이동 -- 장애물 회피 --
+    """
     global move_angle, move_length, running_statem, MODE, INIT_POS, NEW_STATIC, msg_drive
     while True:
         try:
@@ -186,6 +208,7 @@ def move_robot(ser_usb):
             INIT_POS=True
             print(INIT_POS)
             print("move length = ", move_length)
+            # 장애물 회피할 bldc motor, servo motor 값 계산 및 drive msg 생성
             msg_drive.drive.speed=0.1
             msg_drive.drive.steering_angle=int(move_angle) * (-1)
             can_go.clear ()
@@ -196,6 +219,7 @@ def move_robot(ser_usb):
                 if not running_state.isSet():
                     print("Obstacle Appear, wait a moment. . .")
                     running_state.wait()
+                    # 경로로 이동 중 다른 장애물 감지될 시 이동 중지
                     if NEW_STATIC == 1:
                         print ("new static obstacle appear . . .")
                         break
@@ -203,7 +227,6 @@ def move_robot(ser_usb):
                     msg_drive.drive.speed=0.5
                 print("Go to destination. . .")
                 pub_stop.publish(msg_drive)
-                print("iiiiiiiii = ",i)
                 #if i == 2:
                 #    send_data ('0', 'servo', ser_usb)
                 #if i == 20:
@@ -230,6 +253,9 @@ def tf_state(data):
         state = "go"
 
 def Usb_Vesc (data):
+    """
+    vesc serial 초기화
+    """
     global ser_usb, vesc_init
     print ("Usb_Vesc", data.data)
     port = "/dev/ttyUSB" + str(data.data)
@@ -237,6 +263,9 @@ def Usb_Vesc (data):
     vesc_init=1
 
 def Usb_Tf (data):
+    """
+    tf serial 초기화
+    """
     global ser, tf_init
     print ("Usb_Tf", data.data)
     port = "/dev/ttyUSB" + str (data.data)
@@ -244,6 +273,9 @@ def Usb_Tf (data):
     tf_init=1
 
 def Usb_tts (data):
+    """
+    tts serial 초기화
+    """
     global ser_tts, tts_init
     print ("Usb_tts", data.data)
     port = "/dev/ttyUSB" + str (data.data)
